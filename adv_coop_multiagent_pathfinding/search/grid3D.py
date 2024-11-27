@@ -1,16 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb 12 09:32:05 2016
-
-@author: nicolas
-"""
-
 import numpy as np
 import copy
 import heapq
 from abc import ABCMeta, abstractmethod
-import search.probleme
-from search.probleme import Probleme
 
 
 def distManhattan(p1, p2):
@@ -24,20 +15,21 @@ def distManhattan(p1, p2):
 
 ###############################################################################
 
-
-class ProblemeGrid2D(Probleme):
+class ProblemeGrid3D():
     """ On definit un probleme de labyrithe comme étant: 
-        - un état initial
-        - un état but
+        - n états initials
+        - n états buts
         - une grid, donné comme un array booléen (False: obstacle)
         - une heuristique (supporte Manhattan, euclidienne)
         """
 
-    def __init__(self, init, but, grid, heuristique):
+    def __init__(self, init, but, grid, heuristique, reserved=None, time_limit=10):
         self.init = init
         self.but = but
         self.grid = grid
         self.heuristique = heuristique
+        self.reserved = reserved
+        self.time_limit = time_limit
 
     def cost(self, e1, e2):
         """ donne le cout d'une action entre e1 et e2, 
@@ -48,42 +40,54 @@ class ProblemeGrid2D(Probleme):
     def estBut(self, e):
         """ retourne vrai si l'état e est un état but
             """
-        return (self.but == e)
+        return (self.but[0:2] == e[0:2])
 
     def estObstacle(self, e):
         """ retorune vrai si l'état est un obsacle
             """
-        return (self.grid[e] == False)
+        return (self.grid[e[0:2]] == False)
 
     def estDehors(self, etat):
         """retourne vrai si en dehors de la grille
             """
         (s, t) = self.grid.shape
-        (x, y) = etat
+        (x, y) = etat[0:2]
         return ((x >= s) or (y >= t) or (x < 0) or (y < 0))
+
+    def estTimeLimit(self, etat):
+        """retourne vrai si le limite de temps est passe"""
+        return etat[2] > self.time_limit
+
+    def estReserved(self, etat):
+        """retourne vrai si en dehors de la grille
+            """
+        if self.reserved is None:
+            return False
+        else:
+            return (etat in self.reserved)
 
     def successeurs(self, etat):
         """ retourne des positions successeurs possibles
             """
-        current_x, current_y = etat
-        d = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-        etatsApresMove = [(current_x+inc_x, current_y+inc_y)
-                          for (inc_x, inc_y) in d]
-        return [e for e in etatsApresMove if not(self.estDehors(e)) and not(self.estObstacle(e))]
+        current_x, current_y, current_t = etat
+        d = [(0, 1, 1), (1, 0, 1), (0, -1, 1), (-1, 0, 1), (0, 0, 1)]
+        etatsApresMove = [(current_x+inc_x, current_y+inc_y, current_t+inc_t)
+                          for (inc_x, inc_y, inc_t) in d]
+        return [e for e in etatsApresMove if not(self.estDehors(e)) and not(self.estObstacle(e)) and not(self.estReserved(e)) and not(self.estTimeLimit(e))]
 
     def immatriculation(self, etat):
         """ génère une chaine permettant d'identifier un état de manière unique
             """
         s = ""
-        (x, y) = etat
-        s += str(x)+str(y)
+        (x, y, t) = etat
+        s += str(x)+str(y)+str(t)
         return s
 
     def h_value(self, e1, e2):
         """ applique l'heuristique pour le calcul 
             """
         if self.heuristique == 'manhattan':
-            h = distManhattan(e1, e2)
+            h = distManhattan(e1[0:2], e2[0:2])
         elif self.heuristique == 'uniform':
             h = 1
         return h
